@@ -1,10 +1,11 @@
 # Early-exit Network(s)
+
+## Reference from https://github.com/biggsbenjamin/earlyexitnet and modified
 Hopefully going to be a repository of EE models that I can work with in pytorch.
 `BranchyNet.py` is based on the branchy-LeNet model from the [BranchyNet](https://github.com/kunglab/branchynet) repo.
 
 ## Python Setup
 Recommeded conda/miniconda for package management.
-
 1. Set up a python 3.9 environment and activate it:
 
 ```
@@ -21,9 +22,16 @@ conda activate py39
 `pip install .`
 
 ### Requirements
+pytorch                   2.1.1           py3.9_cuda11.8_cudnn8_0    pytorch
+pytorch-cuda              11.8                 h24eeafa_5    pytorch
+pytorch-mutex             1.0                        cuda    pytorch
+torchaudio                2.1.1                    pypi_0    pypi
+torchsummary              1.5.1                    pypi_0    pypi
+torchvision               0.16.1                   pypi_0    pypi
+
 - torch 1.13.1 (for CUDA >=11.6)
-- onnx 1.8.1 
-- onnxruntime 1.7.0 
+- onnx 1.8.1 (not necessarily)
+- onnxruntime 1.7.0 (not necessarily)
 
 This version of ONNX in python is old so requires protobuf compiler to be installed.
 
@@ -74,4 +82,3 @@ Where `-so` is select optimiser. The current default can be found in the trainin
 
 ## Getting visual representation of the onnx graph
 Use [netron](ihttps://netron.app/) viewer
-

@@ -12,6 +12,7 @@ net_graph.jpg.pdf
 *.npy
 official_code/
 data/
+tmp.ipynb
 
 build/
 .eggs/
