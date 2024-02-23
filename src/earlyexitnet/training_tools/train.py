@@ -14,12 +14,13 @@ from earlyexitnet.models.Branchynet import \
 # NOTE models that don't output a list (over exits) won't work
 #from earlyexitnet.models.Lenet import Lenet
 from earlyexitnet.models.Testnet import \
-    Testnet, BrnFirstExit, BrnSecondExit, Backbone_se
+    Testnet, BrnFirstExit, BrnSecondExit, Backbone_se,BrnFirstExit_se
 # Non ee models
 from earlyexitnet.models.ResNet8 import ResNet8,ResNet8_backbone
 # EE resnet models for cifar10
 from earlyexitnet.models.ResNet8 import ResNet8_2EE
-
+from earlyexitnet.models.myResNet import \
+    resnet18_2EE, resnet34_2EE, resnet50_2EE, resnet101_2EE, resnet152_2EE
 # Import optimiser configs
 from earlyexitnet.training_tools import configs
 
@@ -76,6 +77,17 @@ def get_model(model_str):
         model = ResNet8_backbone()
     elif model_str == 'resnet8_2ee':
         model = ResNet8_2EE()
+    elif model_str == 'resnet18_2ee':
+        model = resnet18_2EE()
+    elif model_str == 'resnet34_2ee':
+        model = resnet34_2EE()
+    elif model_str == 'resnet50_2ee':
+        model = resnet50_2EE()
+    elif model_str == 'resnet101_2ee':
+        model = resnet101_2EE()
+    elif model_str == 'resnet152_2ee':
+        model = resnet152_2EE()
+    
     else:
         raise NameError("Model not supported, check name:",model_str)
     print("Model done:", model_str)

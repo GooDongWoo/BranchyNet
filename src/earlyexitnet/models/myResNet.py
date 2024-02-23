@@ -1,5 +1,13 @@
+import sys
+import os
+if __name__ == "__main__":
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    dir_path = os.path.split(dir_path)[:-1][0]
+    dir_path = os.path.split(dir_path)[:-1][0]
+    sys.path.append(dir_path)
 import torch
 import torch.nn as nn
+from torchsummary import summary
 from earlyexitnet.tools import get_output_shape
 
 class BasicBlock(nn.Module):
@@ -92,9 +100,9 @@ class ResNet_backbone(nn.Module):
         )
 
         self.backbone = nn.ModuleList()
-        self._build_backbone(block)
+        self._build_backbone()
         
-        self.end_layers = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)),
+        self.end_layers = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)),nn.Flatten(),
                                         nn.Linear(512 * block.expansion, num_classes))
         # init weights+biases according to mlperf tiny
         if init_weights:
@@ -104,8 +112,8 @@ class ResNet_backbone(nn.Module):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
-            layers.append(block(self.in_channels, out_channels, stride))
-            self.in_channels = out_channels * block.expansion
+            layers.append(block(self.in_chans, out_channels, stride))
+            self.in_chans = out_channels * block.expansion
 
         return nn.Sequential(*layers)
     
@@ -313,3 +321,11 @@ def resnet101_2EE():
 
 def resnet152_2EE():
     return ResNet_backbone(BottleNeck, [3, 8, 36, 3])
+
+
+
+if __name__ == "__main__":
+    # test
+    model = ResNet_backbone(BasicBlock, [2,2,2,2])
+    model.to('cuda')
+    summary(model,(3, 32, 32),device='cuda')
