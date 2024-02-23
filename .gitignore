@@ -1,3 +1,18 @@
-
-#BranchyNet .gitignore
+*.old
+**/__pycache__/
+**/dump/
+**/outputs/
+**/outputs_old/
+**/oldenv/
+**/data_test/
+net_graph.jpg
+net_graph.jpg.pdf
+*.pyc
+**/old/**
+*.npy
+official_code/
 data/
+
+build/
+.eggs/
+*.egg-info/
