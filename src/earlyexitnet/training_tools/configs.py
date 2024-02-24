@@ -77,7 +77,7 @@ class OptAdamWDMulSched(OptAdamWeightDecay):
         opt = self.opt_class(params,lr=self.lr,
                 betas=self.betas,
                 weight_decay=self.weight_decay)
-        lr_sched = self.lr_sched_class(opt,lr_lambda=lr_lambda,verbose=self.verbose)
+        lr_sched = self.lr_sched_class(opt,lr_lambda=self.lr_lambda,verbose=self.verbose)
         return opt, lr_sched
 
 @dataclass

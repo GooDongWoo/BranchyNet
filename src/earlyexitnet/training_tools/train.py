@@ -269,7 +269,7 @@ class Trainer:
             print(f"Training {e_num} exits")
         else:
             e_num = 1
-            print(f"Training final exit")
+            print(f"Training final exit")   #TODO print what number of final exit
 
         # set device model - should be cpu as default
         if self.device is None:
