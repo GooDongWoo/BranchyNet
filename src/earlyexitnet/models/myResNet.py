@@ -14,7 +14,7 @@ class BasicBlock(nn.Module):
     expansion = 1
     def __init__(self, in_channels, out_channels, stride=1):
         super().__init__()
-
+        
         # BatchNorm에 bias가 포함되어 있으므로, conv2d는 bias=False로 설정합니다.
         self.residual_function = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
@@ -42,10 +42,10 @@ class BasicBlock(nn.Module):
         return x
 
 
-class BottleNeck(nn.Module):
+class BottleNeck(BasicBlock):
     expansion = 4
     def __init__(self, in_channels, out_channels, stride=1):
-        super().__init__()
+        super(BottleNeck,self).__init__(in_channels, out_channels, stride=1)
 
         self.residual_function = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, bias=False),
@@ -57,21 +57,6 @@ class BottleNeck(nn.Module):
             nn.Conv2d(out_channels, out_channels * self.expansion, kernel_size=1, stride=1, bias=False),
             nn.BatchNorm2d(out_channels * self.expansion),
         )
-
-        self.shortcut = nn.Sequential()
-
-        self.relu = nn.ReLU()
-
-        if stride != 1 or in_channels != out_channels * self.expansion:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels*self.expansion, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(out_channels*self.expansion)
-            )
-            
-    def forward(self, x):
-        x = self.residual_function(x) + self.shortcut(x)
-        x = self.relu(x)
-        return x
 
 
 #####################################################
@@ -308,19 +293,19 @@ def resnet152():
     return ResNet_backbone(BottleNeck, [3, 8, 36, 3])
 
 def resnet18_2EE():
-    return ResNet_backbone(BasicBlock, [2,2,2,2])
+    return ResNet_2EE(BasicBlock, [2,2,2,2])
 
 def resnet34_2EE():
-    return ResNet_backbone(BasicBlock, [3, 4, 6, 3])
+    return ResNet_2EE(BasicBlock, [3, 4, 6, 3])
 
 def resnet50_2EE():
-    return ResNet_backbone(BottleNeck, [3,4,6,3])
+    return ResNet_2EE(BottleNeck, [3,4,6,3])
 
 def resnet101_2EE():
-    return ResNet_backbone(BottleNeck, [3, 4, 23, 3])
+    return ResNet_2EE(BottleNeck, [3, 4, 23, 3])
 
 def resnet152_2EE():
-    return ResNet_backbone(BottleNeck, [3, 8, 36, 3])
+    return ResNet_2EE(BottleNeck, [3, 8, 36, 3])
 
 
 
