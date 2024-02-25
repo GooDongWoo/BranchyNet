@@ -207,7 +207,12 @@ class Trainer:
 
     def _train_loop_loss_bb(self,opt,results,yb):
         #TODO add backbone only method to brn class
-        loss = self.loss_f(results[-1], yb)
+        '''#TODO different from paper we need to sum all exits's losses
+        loss = self.loss_f(results[-1], yb)*exit_tr_weight[-1]  #final exit loss
+        for i in (len(results)-1):
+            loss += self.loss_f(results[i], yb)*exit_tr_weight[i]       
+        '''
+        loss = self.loss_f(results[-1], yb)         #only final exit loss
         #print(f"Loss: {loss}")
         opt.zero_grad()
         loss.backward()
@@ -290,10 +295,9 @@ class Trainer:
                 # calculate and back prop loss for exit(s)
                 loss_calc_f(opt,results,yb)
             # update training loss and accuracy averages
-            tr_loss_avg = self.train_loss_trk.get_avg(
-                return_list=True)
-            t1acc = self.train_accu_trk.get_accu(
-                return_list=True)
+            tr_loss_avg = self.train_loss_trk.get_avg(return_list=True)
+            t1acc = self.train_accu_trk.get_accu(return_list=True)
+            
             if not training_exits:
                 tr_loss_avg = tr_loss_avg[-1]
                 t1acc = t1acc[-1]
