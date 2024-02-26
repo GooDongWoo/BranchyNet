@@ -84,6 +84,8 @@ def test_only(args):
 
 def test(datacoll,model,exits,loss_f,
          save_path,notes_path,args):
+    if torch.cuda.is_available() and args.gpu_target is not None: 
+        device = torch.device(f"cuda:{args.gpu_target}")
     # check if there are thresholds provided
     if args.top1_threshold is None and \
             args.entr_threshold is None and \
@@ -107,14 +109,15 @@ def test(datacoll,model,exits,loss_f,
                     raise ValueError(f"Not enough arguments for threshold. Expecting {exits-1}")
         # Adding final exit thr - must exit here so tiny/huge depending on criteria
         top1_thr = args.top1_threshold
-        top1_thr.append(0)
+        top1_thr.append(0)              #NOTE?????
         entr_thr = args.entr_threshold
-        entr_thr.append(1000000)
+        entr_thr.append(1000000)        #NOTE????
         # Creating Tester object
         net_test = Tester(model,test_dl,loss_f,exits,
-                top1_thr,entr_thr)
+                top1_thr,entr_thr,device=device)
+
     else:
-        net_test = Tester(model,test_dl,loss_f,exits)
+        net_test = Tester(model,test_dl,loss_f,exits,device=device)
 
     top1_thr = net_test.top1acc_thresholds
     entr_thr = net_test.entropy_thresholds
@@ -288,7 +291,7 @@ def main():
     # parse the arguments
     parser=args_parser()
     if len(sys.argv)==1:
-        args = parser.parse_args("-m resnet50_2ee -bstr 64 -bste 1 -bbe 5 -jte 5 -d cifar10 -gpu 0  -t1 0.9 -entr 0.0001 -rn bravo".split())
+        args = parser.parse_args("-m resnet50_2ee -bstr 64 -bste 1 -bbe 1 -jte 1 -d cifar10 -gpu 0  -t1 0.9 -entr 0.0001 -rn bravo".split())
     else:
         args = parser.parse_args()
 

@@ -385,8 +385,6 @@ class Trainer:
             print("raw validation \tloss:{},accu:{}".format(print_buffers[i][1][0],print_buffers[i][1][1]))
             print("Saved to:", print_buffers[i][2])
             print()
-
-            
         # final print - TODO log this
         print("BEST* VAL LOSS: ",self.best_val_loss["loss"],
               " for epoch: ",self.best_val_loss["savepoint"])
