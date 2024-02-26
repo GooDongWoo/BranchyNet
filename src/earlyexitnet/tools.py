@@ -199,19 +199,12 @@ class CIFAR100DataColl(DataColl):
 ######   Stat functions   ######
 ################################
 class Tracker: #NOTE need to change add_ methods if more avgs required
-    def __init__(self,
-            batch_size,
-            bins=1,
-            set_length=None
-            ):
+    def __init__(self,batch_size,bins=1,set_length=None):
         #init vars
         self._init_vars(batch_size,bins,set_length)
         self.avg_vals = None
 
-    def _init_vars(self,
-            batch_size,
-            bins,
-            set_length=None):
+    def _init_vars(self,batch_size,bins,set_length=None):
         self.batch_size = batch_size #NOTE if batch size differs from used then answer incorrect
         #if set_length is None:
         #    print("WARNING, no set length specified, using accumulated number")
@@ -235,7 +228,7 @@ class Tracker: #NOTE need to change add_ methods if more avgs required
             return
 
         if bin_index is None and self.bin_num == 1:
-            bin_index = 0
+            bin_index = 0                   #bin_index : number of the exit #TODO -1->final, 0->first exit
         elif bin_index is not None:
             assert bin_index < self.bin_num, "index out of range for adding individual loss"
         self.val_bins[bin_index] += value
@@ -283,11 +276,7 @@ class Tracker: #NOTE need to change add_ methods if more avgs required
 
 #loss (validation, testing)
 class LossTracker(Tracker): #NOTE need to change add_ methods if more avgs required
-    def __init__(self,
-            batch_size,
-            bins=1,
-            set_length=None
-            ):
+    def __init__(self,batch_size,bins=1,set_length=None):
         #init vars
         super().__init__(batch_size,bins,set_length)
 
@@ -300,11 +289,7 @@ class LossTracker(Tracker): #NOTE need to change add_ methods if more avgs requi
 
 #accuracy (number correct / number classified)
 class AccuTracker(Tracker):
-    def __init__(self,
-            batch_size,
-            bins=1,
-            set_length=None
-            ):
+    def __init__(self,batch_size,bins=1,set_length=None):
         #init vars
         super().__init__(batch_size,bins,set_length)
     def _init_vars(self, #NOTE can you overloaded parent function

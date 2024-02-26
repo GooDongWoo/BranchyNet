@@ -41,7 +41,7 @@ import torchvision.transforms as transforms
 import os
 import numpy as np
 from datetime import datetime as dt
-
+from tqdm import tqdm
 # get number of correct values from predictions and labels
 def get_num_correct(preds, labels):
     return preds.argmax(dim=1).eq(labels).sum().item()
@@ -281,7 +281,7 @@ class Trainer:
             self.device = torch.device("cpu")
         self.model.to(self.device)
 
-        for epoch in range(max_epochs):
+        for epoch in tqdm(range(max_epochs),desc="epoch / total epochs",leave=True):
             self.model.train()
             print("Starting epoch: {}".format(epoch+1),
                   end="... ", flush=True)
@@ -289,7 +289,7 @@ class Trainer:
             self.train_accu_trk.reset_tracker()
 
             #training loop
-            for xb, yb in self.train_dl:
+            for xb, yb in tqdm(self.train_dl,desc="batch / total batches of 1 epoch",leave=False):
                 xb, yb = xb.to(self.device), yb.to(self.device)
                 results = self.model(xb)
                 # calculate and back prop loss for exit(s)
@@ -315,7 +315,7 @@ class Trainer:
                 self.valid_accu_trk.reset_tracker()
                 self.model.eval()
                 with torch.no_grad():
-                    for xb,yb in self.valid_dl:
+                    for xb,yb in tqdm(self.valid_dl,desc="validation processing",leave=False):
                         xb, yb = xb.to(self.device), yb.to(self.device)
                         res_v = self.model(xb)
                         if training_exits:
