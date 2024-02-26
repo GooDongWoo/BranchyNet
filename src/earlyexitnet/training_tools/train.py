@@ -207,12 +207,11 @@ class Trainer:
 
     def _train_loop_loss_bb(self,opt,results,yb):
         #TODO add backbone only method to brn class
-        '''#TODO different from paper we need to sum all exits's losses
-        loss = self.loss_f(results[-1], yb)*exit_tr_weight[-1]  #final exit loss
-        for i in (len(results)-1):
-            loss += self.loss_f(results[i], yb)*exit_tr_weight[i]       
-        '''
-        loss = self.loss_f(results[-1], yb)         #only final exit loss
+        loss = self.loss_f(results[-1], yb)#*exit_tr_weight[-1]  #final exit loss #TODO different weight for different exits
+        if (len(results)-1)>0:
+            for i in range(len(results)-1):
+                loss += self.loss_f(results[i], yb)#*exit_tr_weight[i]       
+        #loss = self.loss_f(results[-1], yb)         #only final exit loss
         #print(f"Loss: {loss}")
         opt.zero_grad()
         loss.backward()
@@ -280,11 +279,12 @@ class Trainer:
         if self.device is None:
             self.device = torch.device("cpu")
         self.model.to(self.device)
-
-        for epoch in tqdm(range(max_epochs),desc="epoch / total epochs",leave=True):
+        # set up the print buffer because tqdm is annoying
+        print_buffers=[]
+        
+        for epoch in tqdm(range(max_epochs),desc="epoch / total epochs",leave=False):
+            print_buffer=[]
             self.model.train()
-            print("Starting epoch: {}".format(epoch+1),
-                  end="... ", flush=True)
             self.train_loss_trk.reset_tracker()
             self.train_accu_trk.reset_tracker()
 
@@ -306,8 +306,8 @@ class Trainer:
                 self.bb_train_accu[epoch] = t1acc
 
             # print the training info
-            print("raw t loss:{} t1acc:{}".format(tr_loss_avg,t1acc))
-
+            print_buffer.append((tr_loss_avg,t1acc))
+            
             if epoch % self.validation_frequency == 0 or \
                     (epoch+1) == max_epochs:
                 #### validation and saving loop ####
@@ -346,7 +346,7 @@ class Trainer:
                         lr_sched.step(val_accu_avg)
 
                 # debugging print - TODO log this rather than print
-                print("raw v loss:{} v accu:{}".format(val_loss_avg,val_accu_avg))
+                print_buffer.append((val_loss_avg,val_accu_avg))
                 # saving state of network
                 savepoint = save_model(
                     self.model,
@@ -354,7 +354,9 @@ class Trainer:
                     file_prefix=prefix+'-e'+str(epoch+1),
                     opt=opt,tloss=tr_loss_avg,vloss=val_loss_avg,
                     taccu=t1acc,vaccu=val_accu_avg)
-
+                
+                print_buffer.append(savepoint)
+                print_buffers.append(print_buffer)
                 # determining exit loss, current and best
                 validation_get_best_f(val_loss_avg,val_accu_avg,savepoint,epoch)
                 # TODO log tr and vl data against epoch to file
@@ -377,7 +379,14 @@ class Trainer:
             #        opt=opt,tloss=tr_loss_avg,vloss=val_loss_avg,
             #        taccu=t1acc,vaccu=val_accu_avg)
             #    break
+        for i in range(len(print_buffers)):
+            print(f'{i+1}th Epoch\'s stat')
+            print("raw training \tloss:{},accu:{}".format(print_buffers[i][0][0],print_buffers[i][0][1]))
+            print("raw validation \tloss:{},accu:{}".format(print_buffers[i][1][0],print_buffers[i][1][1]))
+            print("Saved to:", print_buffers[i][2])
+            print()
 
+            
         # final print - TODO log this
         print("BEST* VAL LOSS: ",self.best_val_loss["loss"],
               " for epoch: ",self.best_val_loss["savepoint"])

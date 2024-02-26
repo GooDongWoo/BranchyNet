@@ -396,7 +396,7 @@ def save_model(model, path, file_prefix='', seed=None, epoch=None, opt=None,
     file_path = os.path.join(path, filenm)
 
     torch.save(save_dict, file_path)
-    print("Saved to:", file_path)
+    #print("Saved to:", file_path)
     return file_path
 
 def load_model(model, path, strict=True):
