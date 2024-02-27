@@ -8,7 +8,7 @@ Added non-ee training from other script for testing purposes.
 
 # importing early exit models
 from earlyexitnet.models.Branchynet import \
-    ConvPoolAc,B_Lenet,B_Lenet_fcn,B_Lenet_se, B_Lenet_cifar
+    B_Lenet,B_Lenet_fcn,B_Lenet_se, B_Lenet_cifar
 
 # importing non EE models
 # NOTE models that don't output a list (over exits) won't work
@@ -26,20 +26,17 @@ from earlyexitnet.training_tools import configs
 
 # importing accu + loss trackers and dataloader classes
 from earlyexitnet.tools import LossTracker, AccuTracker
-from earlyexitnet.tools import save_model, load_model, shape_test
+from earlyexitnet.tools import save_model, load_model
 
 # pytorch imports
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import \
-    DataLoader, Dataset, TensorDataset, random_split
-import torchvision
-import torchvision.transforms as transforms
+from sklearn.model_selection import KFold
+from torch.utils.data import DataLoader
 
 # general imports
 import os
-import numpy as np
 from datetime import datetime as dt
 from tqdm import tqdm
 # get number of correct values from predictions and labels
@@ -94,7 +91,7 @@ def get_model(model_str):
     return model
 
 class Trainer:
-    def __init__(self, model, train_dl, valid_dl, batch_size, save_path,
+    def __init__(self, model, datacoll,batch_size, save_path,
                  loss_f=nn.CrossEntropyLoss(), exits=1,
                  backbone_epochs=50, exit_epochs=50,joint_epochs=100,
                  backbone_opt_cfg='adam-brn',exit_opt_cfg='adam-brn',
@@ -102,15 +99,20 @@ class Trainer:
                  device=None,
                  pretrained_path=None,
                  validation_frequency=1,
+                 kfold=5,
                  #dat_norm=False):
                  ):
         # assign nn model to train
         self.model=model
         # assign training and validation data loaders
-        self.train_dl=train_dl
-        self.train_len=len(self.train_dl)
-        self.valid_dl=valid_dl
-        self.valid_len=len(self.valid_dl)
+        self.datacoll = datacoll
+        self.train_dl = datacoll.get_train_dl()
+        self.valid_dl = datacoll.get_valid_dl()
+        self.train_ds = datacoll.get_train_ds()
+        self.train_len = len(self.train_dl)
+        self.kfold = kfold
+        self.k_cv = KFold(n_splits=kfold, shuffle=True, random_state=0)
+        
         # assign training batch size
         self.batch_size=batch_size
         # assign loss function (cross entropy loss)
@@ -183,7 +185,7 @@ class Trainer:
             self.valid_dl.batch_size,bins=e_num)
 
     def _train_loop_loss_ex(self,opt,results,yb):
-        # calculate loss, ba
+        # calculate loss, ba    #TODO need to correct loss ->sum all exits's loss
         raw_losses = [self.loss_f(res,yb) \
                       for res in results]
         losses = [weighting * raw_loss
@@ -279,17 +281,29 @@ class Trainer:
         if self.device is None:
             self.device = torch.device("cpu")
         self.model.to(self.device)
+        
+        #k-fold cross validation
+        k_cv_loader=enumerate(self.k_cv.split(self.train_ds))
         # set up the print buffer because tqdm is annoying
         print_buffers=[]
         
         for epoch in tqdm(range(max_epochs),desc="epoch / total epochs",leave=False):
+            try:
+                fold_num,(train_idx,valid_idx)=next(k_cv_loader)
+            except:
+                k_cv_loader=enumerate(self.k_cv.split(self.train_ds))
+                fold_num,(train_idx,valid_idx)=next(k_cv_loader)
+                
+            self.train_dl = DataLoader(dataset=self.train_ds,batch_size=self.batch_size,sampler=torch.utils.data.SubsetRandomSampler(train_idx),)
+            self.valid_dl = DataLoader(dataset=self.train_ds,batch_size=self.batch_size,sampler=torch.utils.data.SubsetRandomSampler(valid_idx),)
+    
             print_buffer=[]
             self.model.train()
             self.train_loss_trk.reset_tracker()
             self.train_accu_trk.reset_tracker()
 
             #training loop
-            for xb, yb in tqdm(self.train_dl,desc="batch / total batches of 1 epoch",leave=False):
+            for xb, yb in tqdm(self.train_dl,desc=f"{epoch+1}th epoch & batch processing",leave=False):
                 xb, yb = xb.to(self.device), yb.to(self.device)
                 results = self.model(xb)
                 # calculate and back prop loss for exit(s)
@@ -308,20 +322,18 @@ class Trainer:
             # print the training info
             print_buffer.append((tr_loss_avg,t1acc))
             
-            if epoch % self.validation_frequency == 0 or \
-                    (epoch+1) == max_epochs:
-                #### validation and saving loop ####
+            # validation loop
+            if epoch % self.validation_frequency == 0 or (epoch+1) == max_epochs:
                 self.valid_loss_trk.reset_tracker()
                 self.valid_accu_trk.reset_tracker()
                 self.model.eval()
                 with torch.no_grad():
-                    for xb,yb in tqdm(self.valid_dl,desc="validation processing",leave=False):
+                    for xb,yb in tqdm(self.valid_dl,desc=f"{epoch+1}th epoch & validation processing",leave=False):
                         xb, yb = xb.to(self.device), yb.to(self.device)
                         res_v = self.model(xb)
                         if training_exits:
                             self.valid_loss_trk.add_loss(
-                                [self.loss_f(exit, yb) \
-                                 for exit in res_v])
+                                [self.loss_f(exit, yb) for exit in res_v])
                             self.valid_accu_trk.update_correct(
                                 res_v,yb)
                         else:
@@ -401,9 +413,9 @@ class Trainer:
             prefix='bb-exist'
         if self.exits>1:
             # selecting only backbone params
-            params = [{'params': self.model.backbone.parameters()},
-                    {'params': self.model.exits[-1].parameters()}
-                    ]
+            params = [{'params': self.model.init_conv.parameters()},
+                      {'params': self.model.backbone.parameters()},
+                      {'params': self.model.exits[-1].parameters()}]
         else:
             params = self.model.parameters()
 

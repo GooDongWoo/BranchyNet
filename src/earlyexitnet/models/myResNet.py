@@ -211,7 +211,7 @@ class ResNet_2EE(ResNet_backbone):
         self.exit_num=2
         self.fast_inference_mode = False
         self.exit_loss_weights = [1.0, 1.0] #for training
-        self.exit_threshold = torch.tensor([0.8], dtype=torch.float32) #for fast inference
+        self.exit_threshold = torch.tensor([0.8], dtype=torch.float32) #for fast inference  #TODO: inference variable(not constant 0.8) need to make parameter
         self._build_exits()
 
     def _build_exits(self): #adding early exits/branches

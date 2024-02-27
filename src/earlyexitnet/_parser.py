@@ -14,9 +14,9 @@ def args_parser():
     parser.add_argument('-bstr','--batch_size_train',type=int,default=64,
                         help='batch size for the training of the network')
     parser.add_argument('-bbe','--bb_epochs', metavar='N',type=int, default=5, required=False,
-            help='Epochs to train backbone separately, or non ee network')
+            help='Epochs to train backbone(pretrain separately), or non ee network')
     parser.add_argument('-jte','--jt_epochs', metavar='n',type=int, default=5, required=False,
-            help='epochs to train exits jointly with backbone')
+            help='after loading pretrained model(bbe training) epochs to train exits jointly with backbone')
     parser.add_argument('-exe','--ex_epochs', metavar='n',type=int, default=0, required=False,
             help='epochs to train exits with frozen backbone')
     parser.add_argument('-vf','--validation_frequency',type=int,default=1,required=False,

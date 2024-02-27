@@ -14,120 +14,68 @@ from datetime import datetime as dt
 ################################
 
 class DataColl:
-    def __init__(self,
-            batch_size_train=64,
-            batch_size_valid=64,
+    def __init__(self,batch_size_train=64,batch_size_valid=64,
             batch_size_test=1,
             normalise=False,
             k_cv=None,
-            v_split=None,
             num_workers=1,
             shuffle=True,
-            no_scaling=False
-            ):
+            no_scaling=False):
+                
         self.batch_size_train = batch_size_train
+        self.batch_size_valid = batch_size_valid
         self.batch_size_test = batch_size_test
         #bool to normalise training set or not
         self.normalise_train = normalise
         self.num_workers=num_workers
         #how many equal partitions of the training data for k fold CV, e.g. 5
         self.k_cross_validation = k_cv
-        if self.k_cross_validation is not None:
-            print("NO K_CV YET")
-        #faction of training date for validation for single train/valid split, e.g. 0.2
-        self.validation_split = v_split
-
-        assert ((k_cv is None) or (v_split is None)), "only one V type, or none at all"
-        self.has_valid = True if v_split is not None or k_cv is not None else False
-        self.single_split = True if v_split is not None else False
-
+        self.has_valid = True if k_cv is not None else False
+        
         self.shuffle=shuffle
         # don't scale the values
         # TODO apply this to other transform compositions
         self.no_scaling=no_scaling
 
-        self._load_sets()
-
-        #torchvision datasets (dataloader precursors)
-        self.train_set = None
-        self.valid_set = None
-        #dataloaders for single split
+        self.full_train_set = None
+        self.full_test_set = None
         self.train_dl = None
         self.valid_dl = None
+                
+        self._load_sets()
+
+        self.split_ratio=1
         #generate data loaders
+        if k_cv is not None:
+            self.split_ratio=1-(1/k_cv)
+        self.dl_init(self.split_ratio)
         self.get_train_dl()
-        if self.has_valid and self.single_split:
-            self.get_valid_dl()
 
         self.test_dl = None
         self.get_test_dl()
         return
+    
     def _load_sets(self):
-        self.tfs = None
-        #full training set, no normalisation
-        self.full_train_set = None
-        #full testing set
-        self.full_test_set = None
-        NameError("template class, no loading")
+        raise NameError("template class, no loading")
 
-    #####  single split methods  #####
-    def gen_train(self): #gen training sets, normalised or valid split defined here
-        if self.normalise_train:
-            print("WARNING: Normalising data set")
-            raise NameError("no normalising till fixed")
-            #calc mean and stdev
-            norm_dl = DataLoader(self.full_train_set, batch_size=len(self.full_train_set),
-                    num_workers=self.num_workers)
-            norm_data = next(iter(norm_dl))
-            mean = norm_data[0].mean()
-            std = norm_data[0].std()
-            print("Dataset mean:{} std:{}".format(mean, std))
-            # set new transforms
-            tfs_norm = transforms.Compose([
-                        transforms.ToTensor(),
-                        transforms.Normalize(mean, std)])
-            # normalised set
-            self.full_train_set = torchvision.datasets.MNIST('../data/mnist',
-                    download=True, train=True, transform=tfs_norm)
-
-        if self.validation_split is not None:
-            valid_len = int(len(self.full_train_set)*self.validation_split)
-            train_len = len(self.full_train_set) - valid_len
-            self.train_set,self.valid_set = random_split(self.full_train_set,
-                                            [train_len,valid_len])
-
-    def get_train_dl(self,force=False):
-        if force: #force will regenerate the dls - new random dist or changing split
-            self.gen_train()
-            self.valid_dl = None #reset valid dl in case force not called here
-            self.train_dl = DataLoader(self.train_set, batch_size=self.batch_size_train,
-                        drop_last=True, shuffle=self.shuffle, num_workers=self.num_workers)
-        else:
-            if self.train_set is None:
-                self.gen_train()
-            elif self.train_dl is None:
-                if self.single_split:
-                    self.train_dl = DataLoader(self.train_set, batch_size=self.batch_size_train,
-                            drop_last=True, shuffle=self.shuffle, num_workers=self.num_workers)
-                else:
-                    self.train_dl = DataLoader(self.full_train_set, batch_size=self.
-                            batch_size_train,drop_last=True, shuffle=self.shuffle,
-                            num_workers=self.num_workers)
-        #returns training set
+    def dl_init(self,split_ratio):
+        if split_ratio != 1:
+            #split the training set
+            train_len = len(self.full_train_set)
+            valid_len = int(train_len * (1-split_ratio))
+            train_len = train_len - valid_len
+            self.tmp_train_set, self.tmp_valid_set = random_split(self.full_train_set,[train_len, valid_len])
+            self.valid_dl = DataLoader(self.tmp_valid_set, batch_size=self.batch_size_train,
+                                       drop_last=True, shuffle=self.shuffle,num_workers=self.num_workers)
+        self.train_dl = DataLoader(self.tmp_train_set, batch_size=self.batch_size_train,
+                                   drop_last=True, shuffle=self.shuffle,num_workers=self.num_workers)
+        
+    def get_train_dl(self):
         return self.train_dl
-
-    def gen_valid(self):
-        assert self.validation_split is not None, "NO validation split specified"
-        self.gen_train()
-
     def get_valid_dl(self):
-        if self.valid_set is None:
-            self.gen_valid()
-        elif self.valid_dl is None:
-            self.valid_dl = DataLoader(self.valid_set, batch_size=self.batch_size_train,
-                    drop_last=True, shuffle=self.shuffle, num_workers=self.num_workers)
-        #returns validation split
         return self.valid_dl
+    def get_train_ds(self):
+        return self.full_train_set
 
     #####  test methods  #####
     def gen_test(self): #NOTE might become more complex in future

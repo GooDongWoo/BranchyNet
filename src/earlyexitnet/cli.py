@@ -187,28 +187,26 @@ def train_n_test(args):
     #training bs in branchynet
     batch_size_train = args.batch_size_train
     # split the training data into training and validation (test is separate)
-    validation_split = 0.2
+    k_cv=5
     batch_size_test = args.batch_size_test #test bs in branchynet
     normalise=False     #normalise the training data or not
     #sort into training, and test data
     if args.dataset == 'mnist':
         datacoll = MNISTDataColl(batch_size_train=batch_size_train,
                 batch_size_test=batch_size_test,normalise=normalise,
-                v_split=validation_split,num_workers=num_workers)
+                k_cv=k_cv,num_workers=num_workers)
     elif args.dataset == 'cifar10':
         datacoll = CIFAR10DataColl(batch_size_train=batch_size_train,
                 batch_size_test=batch_size_test,normalise=normalise,
-                v_split=validation_split,num_workers=num_workers,
+                k_cv=k_cv,num_workers=num_workers,
                 no_scaling=args.no_scaling)
     elif args.dataset == 'cifar100':
         datacoll = CIFAR100DataColl(batch_size_train=batch_size_train,
                 batch_size_test=batch_size_test,normalise=normalise,
-                v_split=validation_split,num_workers=num_workers,
+                k_cv=k_cv,num_workers=num_workers,
                 no_scaling=args.no_scaling)
     else:                                                           #TODO add more datasets
         raise NameError("Dataset not supported, check name:",args.dataset)
-    train_dl = datacoll.get_train_dl()
-    valid_dl = datacoll.get_valid_dl()
     print("Got training data, batch size:",batch_size_train)
 
     #start training loop for epochs - at some point add recording points here
@@ -222,7 +220,7 @@ def train_n_test(args):
 
     # Set up training class
     net_trainer = Trainer(
-        model, train_dl, valid_dl, batch_size_train,
+        model, datacoll, batch_size_train,
         path_str,loss_f=loss_f, exits=exits,
         # set epochs
         backbone_epochs=args.bb_epochs,
@@ -290,8 +288,8 @@ Main function that sorts out the CLI args and runs training and testing function
 def main():
     # parse the arguments
     parser=args_parser()
-    if len(sys.argv)==1:
-        args = parser.parse_args("-m resnet50_2ee -bstr 64 -bste 1 -bbe 1 -jte 1 -d cifar10 -gpu 0  -t1 0.9 -entr 0.0001 -rn bravo".split())
+    if len(sys.argv)==1:    #if no args given, use defaults(run this file directly)
+        args = parser.parse_args("-m resnet50_2ee -bstr 64 -bste 1 -bbe 100 -jte 1 -d cifar10 -gpu 0  -t1 0.9 -entr 0.0001 -rn bravo".split())
     else:
         args = parser.parse_args()
 
