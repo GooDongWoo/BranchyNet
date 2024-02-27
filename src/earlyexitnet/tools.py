@@ -29,7 +29,7 @@ class DataColl:
         self.normalise_train = normalise
         self.num_workers=num_workers
         #how many equal partitions of the training data for k fold CV, e.g. 5
-        self.k_cross_validation = k_cv
+        self.k_cv = k_cv
         self.has_valid = True if k_cv is not None else False
         
         self.shuffle=shuffle
@@ -45,6 +45,7 @@ class DataColl:
         self._load_sets()
 
         self.split_ratio=1
+        self.tmp_train_set=self.full_train_set
         #generate data loaders
         if k_cv is not None:
             self.split_ratio=1-(1/k_cv)

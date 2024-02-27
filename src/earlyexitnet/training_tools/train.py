@@ -91,7 +91,7 @@ def get_model(model_str):
     return model
 
 class Trainer:
-    def __init__(self, model, datacoll,batch_size, save_path,
+    def __init__(self, model, datacoll, batch_size, save_path,
                  loss_f=nn.CrossEntropyLoss(), exits=1,
                  backbone_epochs=50, exit_epochs=50,joint_epochs=100,
                  backbone_opt_cfg='adam-brn',exit_opt_cfg='adam-brn',
@@ -99,7 +99,6 @@ class Trainer:
                  device=None,
                  pretrained_path=None,
                  validation_frequency=1,
-                 kfold=5,
                  #dat_norm=False):
                  ):
         # assign nn model to train
@@ -110,8 +109,8 @@ class Trainer:
         self.valid_dl = datacoll.get_valid_dl()
         self.train_ds = datacoll.get_train_ds()
         self.train_len = len(self.train_dl)
-        self.kfold = kfold
-        self.k_cv = KFold(n_splits=kfold, shuffle=True, random_state=0)
+        self.kfold = datacoll.k_cv
+        self.k_cv = KFold(n_splits=self.kfold, shuffle=True, random_state=0)
         
         # assign training batch size
         self.batch_size=batch_size
@@ -183,15 +182,23 @@ class Trainer:
             self.valid_dl.batch_size,bins=e_num)
         self.valid_accu_trk = AccuTracker(
             self.valid_dl.batch_size,bins=e_num)
-
+        
+    def _train_loop_loss_bb(self,opt,results,yb):
+        #TODO add backbone only method to brn class    
+        loss = self.loss_f(results[-1], yb)         #only train final exit loss, just for making pretrained model, not real training
+        #print(f"Loss: {loss}")
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        # update trackers
+        self.train_loss_trk.add_loss(loss.item())
+        self.train_accu_trk.update_correct(results[-1],yb)
+        
     def _train_loop_loss_ex(self,opt,results,yb):
-        # calculate loss, ba    #TODO need to correct loss ->sum all exits's loss
-        raw_losses = [self.loss_f(res,yb) \
-                      for res in results]
-        losses = [weighting * raw_loss
-                    for weighting, raw_loss in \
-                  zip(self.model.exit_loss_weights,
-                      raw_losses)]
+        # calculate loss, ba    # real training part for branch
+        raw_losses = [self.loss_f(res,yb) for res in results]   #results[0]: first exit, results[1]: second exit, ...
+        losses = [weighting * raw_loss for weighting, raw_loss in \
+                  zip(self.model.exit_loss_weights,raw_losses)]
         opt.zero_grad()
         #backprop
         for loss in losses[:-1]:
@@ -201,27 +208,21 @@ class Trainer:
         losses[-1].backward()
         opt.step()
         #raw losses
-        self.train_loss_trk.add_loss(
-            [exit_loss.item() for \
-             exit_loss in raw_losses])
-        self.train_accu_trk.update_correct(
-            results,yb)
+        self.train_loss_trk.add_loss([exit_loss.item() for exit_loss in raw_losses])
+        self.train_accu_trk.update_correct(results,yb)
 
-    def _train_loop_loss_bb(self,opt,results,yb):
-        #TODO add backbone only method to brn class
-        loss = self.loss_f(results[-1], yb)#*exit_tr_weight[-1]  #final exit loss #TODO different weight for different exits
-        if (len(results)-1)>0:
-            for i in range(len(results)-1):
-                loss += self.loss_f(results[i], yb)#*exit_tr_weight[i]       
-        #loss = self.loss_f(results[-1], yb)         #only final exit loss
-        #print(f"Loss: {loss}")
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
-        # update trackers
-        self.train_loss_trk.add_loss(loss.item())
-        self.train_accu_trk.update_correct(
-            results[-1],yb)
+    # get best validation accu and loss - bb ver
+    def _val_loop_get_best_bb(self,val_loss_avg,val_accu_avg,
+            savepoint,curr_epoch):
+        if val_loss_avg < self.best_val_loss["loss"][0]:
+            self.best_val_loss["loss"][0] = val_loss_avg
+            self.best_val_loss["savepoint"]=savepoint
+            self.best_val_loss["epoch"] = curr_epoch
+        if val_accu_avg > self.best_val_accu["accuracy"][0]:
+            self.best_val_accu["accuracy"][0] = val_accu_avg
+            self.best_val_accu["savepoint"] = savepoint
+            self.best_val_accu["epoch"] = curr_epoch
+            
     def _val_loop_get_best_ex(self,val_loss_avg,val_accu_avg,
             savepoint,curr_epoch):
         el_total=0.0
@@ -241,8 +242,7 @@ class Trainer:
         ea_total=0.0
         ba_total=0.0
         for exit_accu, best_accu,l_w in \
-                zip(val_accu_avg,
-                    self.best_val_accu["accuracy"],
+                zip(val_accu_avg,self.best_val_accu["accuracy"],
                     self.model.exit_loss_weights):
             ea_total+=exit_accu*l_w
             ba_total+=best_accu*l_w
@@ -251,18 +251,7 @@ class Trainer:
             self.best_val_accu["accuracy"]=val_accu_avg
             self.best_val_accu["savepoint"]=savepoint
             self.best_val_accu["epoch"] = curr_epoch
-    # get best validation accu and loss - bb ver
-    def _val_loop_get_best_bb(self,val_loss_avg,val_accu_avg,
-            savepoint,curr_epoch):
-        if val_loss_avg < self.best_val_loss["loss"][0]:
-            self.best_val_loss["loss"][0] = val_loss_avg
-            self.best_val_loss["savepoint"]=savepoint
-            self.best_val_loss["epoch"] = curr_epoch
-        if val_accu_avg > self.best_val_accu["accuracy"][0]:
-            self.best_val_accu["accuracy"][0] = val_accu_avg
-            self.best_val_accu["savepoint"] = savepoint
-            self.best_val_accu["epoch"] = curr_epoch
-
+            
     def _train_ee(self, training_exits, max_epochs, epoch_thresh,
             opt,internal_folder='',prefix='blank_prefix',
             # bb vs exit&jnt functions for loss, etc.
@@ -284,6 +273,7 @@ class Trainer:
         
         #k-fold cross validation
         k_cv_loader=enumerate(self.k_cv.split(self.train_ds))
+        
         # set up the print buffer because tqdm is annoying
         print_buffers=[]
         
@@ -303,7 +293,7 @@ class Trainer:
             self.train_accu_trk.reset_tracker()
 
             #training loop
-            for xb, yb in tqdm(self.train_dl,desc=f"{epoch+1}th epoch & batch processing",leave=False):
+            for xb, yb in tqdm(self.train_dl,desc=f"{epoch+1}th epoch & batch processing({fold_num+1}th fold)",leave=False):
                 xb, yb = xb.to(self.device), yb.to(self.device)
                 results = self.model(xb)
                 # calculate and back prop loss for exit(s)
@@ -332,20 +322,15 @@ class Trainer:
                         xb, yb = xb.to(self.device), yb.to(self.device)
                         res_v = self.model(xb)
                         if training_exits:
-                            self.valid_loss_trk.add_loss(
-                                [self.loss_f(exit, yb) for exit in res_v])
-                            self.valid_accu_trk.update_correct(
-                                res_v,yb)
+                            self.valid_loss_trk.add_loss([self.loss_f(exit, yb) for exit in res_v])
+                            self.valid_accu_trk.update_correct(res_v,yb)
                         else:
                             vloss=self.loss_f(res_v[-1], yb)
                             self.valid_loss_trk.add_loss(vloss)
-                            self.valid_accu_trk.update_correct(
-                                res_v[-1],yb)
+                            self.valid_accu_trk.update_correct(res_v[-1],yb)
                 # average validation loss and accuracy
-                val_loss_avg = self.valid_loss_trk.get_avg(
-                    return_list=True)
-                val_accu_avg = self.valid_accu_trk.get_accu(
-                    return_list=True)
+                val_loss_avg = self.valid_loss_trk.get_avg(return_list=True)
+                val_accu_avg = self.valid_accu_trk.get_accu(return_list=True)
                 if not training_exits: # should be last of 1
                     val_loss_avg = val_loss_avg[-1]
                     val_accu_avg = val_accu_avg[-1]
@@ -360,8 +345,7 @@ class Trainer:
                 # debugging print - TODO log this rather than print
                 print_buffer.append((val_loss_avg,val_accu_avg))
                 # saving state of network
-                savepoint = save_model(
-                    self.model,
+                savepoint = save_model(self.model,
                     os.path.join(self.save_path,internal_folder),
                     file_prefix=prefix+'-e'+str(epoch+1),
                     opt=opt,tloss=tr_loss_avg,vloss=val_loss_avg,

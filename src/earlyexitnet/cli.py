@@ -289,7 +289,9 @@ def main():
     # parse the arguments
     parser=args_parser()
     if len(sys.argv)==1:    #if no args given, use defaults(run this file directly)
-        args = parser.parse_args("-m resnet50_2ee -bstr 64 -bste 1 -bbe 100 -jte 1 -d cifar10 -gpu 0  -t1 0.9 -entr 0.0001 -rn bravo".split())
+        #-m resnet50_2ee -mp outputs\\resnet50_2ee\pre_Trn_bb_2024-02-27_090247\\backbone-e100-2024-02-27_094310.pth -bstr 64 -bste 1 -bbe 0 -jte 0 -d cifar10 -gpu 0  -t1 0.9 -entr 0.0001 -rn bravo
+        #-m resnet50_2ee -bstr 64 -bste 1 -bbe 6 -jte 5 -d cifar10 -gpu 0  -t1 0.9 -entr 0.0001 -rn bravo
+        args = parser.parse_args("-m resnet50_2ee -mp outputs\\resnet50_2ee\pre_Trn_bb_2024-02-27_090247\\backbone-e100-2024-02-27_094310.pth -bstr 64 -bste 1 -bbe 0 -jte 1 -d cifar10 -gpu 0  -t1 0.9 -entr 0.0001 -rn bravo".split())
     else:
         args = parser.parse_args()
 
